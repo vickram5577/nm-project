@@ -1,0 +1,50 @@
+import os
+import docx
+import spacy
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from nltk.corpus import stopwords
+
+# Load English NLP model
+nlp = spacy.load("en_core_web_sm")
+
+# Directory with resumes
+RESUME_FOLDER = "resumes/"
+
+# Load and clean text from .docx resumes
+def extract_text_from_docx(file_path):
+    doc = docx.Document(file_path)
+    return " ".join([para.text for para in doc.paragraphs])
+
+# Clean and tokenize text
+def preprocess(text):
+    stop_words = set(stopwords.words('english'))
+    doc = nlp(text.lower())
+    tokens = [token.lemma_ for token in doc if token.is_alpha and token.text not in stop_words]
+    return " ".join(tokens)
+
+# Load resumes and preprocess
+def load_resumes():
+    resumes = []
+    for filename in os.listdir(RESUME_FOLDER):
+        if filename.endswith(".docx"):
+            path = os.path.join(RESUME_FOLDER, filename)
+            text = extract_text_from_docx(path)
+            resumes.append({
+                "name": filename,
+                "raw_text": text,
+                "processed_text": preprocess(text)
+            })
+    return pd.DataFrame(resumes)
+
+# Match resumes with job description
+def match_resumes(job_description, resumes_df):
+    processed_jd = preprocess(job_description)
+    texts = [processed_jd] + resumes_df["processed_text"].tolist()
+
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(texts)
+
+    similarity_scores = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+    resumes_df["score"] = s_
